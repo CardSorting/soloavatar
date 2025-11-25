@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DropService } from '@/lib/server/domains/drops/services/dropService';
 import { BadRequestError } from '@/lib/server/shared/errors';
 import logger from '@/lib/server/shared/utils/logger';
+import { queueService } from '@/lib/server/infrastructure/queue/queueService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,9 +19,9 @@ export async function POST(request: NextRequest) {
     // For simplicity, userId can be provided or default to 'anonymous'
     const finalUserId = userId || 'anonymous';
 
+    // Create the drop
     const drop = await DropService.createDrop({
       baseAvatarId,
-      creatorId: finalUserId,
       title,
       description,
       stockLimit: parseInt(stockLimit),
@@ -28,9 +29,29 @@ export async function POST(request: NextRequest) {
       traitConfig,
     });
 
+    // Ensure queue service is initialized
+    if (!queueService.isInitialized()) {
+      await queueService.initialize();
+    }
+
+    // Enqueue drop generation job to generate variations
+    const jobId = await queueService.enqueueDropGeneration({
+      dropId: drop.id,
+      baseAvatarId,
+      stockLimit: parseInt(stockLimit),
+      traitConfig,
+    });
+
+    logger.info('Drop generation job enqueued', {
+      dropId: drop.id,
+      jobId,
+    });
+
     return NextResponse.json({
       success: true,
       drop,
+      jobId,
+      message: 'Drop created and generation queued successfully',
     });
   } catch (error: any) {
     logger.error('Create drop API error', { error: error.message });

@@ -8,12 +8,14 @@ import { StorageService } from './storage/storageService';
 import { HealthService } from './monitoring/healthService';
 import { config } from './config';
 import logger from '../shared/utils/logger';
+import { startWorkers } from './queue/workerManager';
 
 interface InitResult {
   success: boolean;
   components: {
     database: boolean;
     storage: boolean;
+    queue?: boolean;
   };
   errors?: string[];
 }
@@ -27,6 +29,7 @@ export async function initializeApplication(): Promise<InitResult> {
     components: {
       database: false,
       storage: false,
+      queue: false,
     },
     errors: [],
   };
@@ -81,6 +84,23 @@ export async function initializeApplication(): Promise<InitResult> {
       logger.error('Database initialization failed', { error: error.message });
     }
 
+    // Initialize queue service (optional - workers can be started separately)
+    // Only start workers if ENABLE_WORKERS env var is set
+    if (process.env.ENABLE_WORKERS === 'true') {
+      logger.info('Initializing queue workers');
+      try {
+        await startWorkers();
+        result.components.queue = true;
+        logger.info('Queue workers initialized successfully');
+      } catch (error: any) {
+        result.errors!.push(`Queue initialization failed: ${error.message}`);
+        logger.error('Queue initialization failed', { error: error.message });
+        // Don't fail overall initialization if queue fails
+      }
+    } else {
+      logger.info('Queue workers disabled (set ENABLE_WORKERS=true to enable)');
+    }
+
     // Determine overall success
     result.success = result.components.database && result.components.storage;
 
@@ -98,6 +118,7 @@ export async function initializeApplication(): Promise<InitResult> {
       success: result.success,
       database: result.components.database,
       storage: result.components.storage,
+      queue: result.components.queue,
       errorCount: result.errors!.length,
     });
 
@@ -141,6 +162,12 @@ export async function shutdownApplication(): Promise<void> {
   logger.info('Starting application shutdown');
 
   try {
+    // Stop workers if they were started
+    if (process.env.ENABLE_WORKERS === 'true') {
+      const { stopWorkers } = await import('./queue/workerManager');
+      await stopWorkers();
+    }
+
     await DatabaseUtils.shutdown();
     logger.info('Application shutdown completed');
   } catch (error: any) {
