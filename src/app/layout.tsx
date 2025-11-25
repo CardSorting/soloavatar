@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { initializeApplication } from '../lib/server/infrastructure/init';
+import Navigation from './components/Navigation';
 
 // Only run initialization on server side
 if (typeof window === 'undefined') {
@@ -30,7 +31,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="antialiased">
+        <Navigation />
+        {children}
+      </body>
     </html>
   );
 }
