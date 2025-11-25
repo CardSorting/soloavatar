@@ -33,12 +33,16 @@ const nextConfig = {
         stream: false,
         buffer: false,
       };
+      // Exclude server-only packages from client bundle
+      config.externals = config.externals || [];
+      config.externals.push('pg-boss');
     }
     return config;
   },
   serverExternalPackages: [
     'replicate',
     'pg',
+    'pg-boss',
     '@google/genai',
     'sharp',
     '@prisma/client',

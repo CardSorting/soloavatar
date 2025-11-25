@@ -3,9 +3,12 @@
  * Manages job queues for avatar generation and drop processing
  */
 
-import PgBoss from 'pg-boss';
+import * as PgBossModule from 'pg-boss';
 import { config } from '../config';
 import logger from '../../shared/utils/logger';
+
+// pg-boss exports an object with PgBoss as a named export
+const PgBoss = PgBossModule.PgBoss;
 
 export interface AvatarGenerationJobData {
   requestId: string;
@@ -49,31 +52,12 @@ class QueueService {
       }
 
       // Create pg-boss instance
-      // PgBoss can be a constructor or a function depending on version
-      const PgBossConstructor = (PgBoss as any).default || PgBoss;
-      this.boss = typeof PgBossConstructor === 'function' 
-        ? new PgBossConstructor({
-            connectionString: config.database.url,
-            // Queue configuration
-            retryLimit: 3,
-            retryDelay: 5000, // 5 seconds
-            retryBackoff: true,
-            // Job expiration (48 hours - more lenient for personal use)
-            expireInHours: 48,
-            // Delete completed jobs after 3 days (shorter retention for personal use)
-            deleteAfterHours: 72,
-            // Schema for pg-boss tables
-            schema: 'pgboss',
-          })
-        : PgBossConstructor({
-            connectionString: config.database.url,
-            retryLimit: 3,
-            retryDelay: 5000,
-            retryBackoff: true,
-            expireInHours: 48,
-            deleteAfterHours: 72,
-            schema: 'pgboss',
-          });
+      // PgBoss is a constructor class
+      this.boss = new PgBoss({
+        connectionString: config.database.url,
+        // Schema for pg-boss tables
+        schema: 'pgboss',
+      });
 
       // Set up event handlers
       if (this.boss) {
@@ -96,11 +80,21 @@ class QueueService {
         // Start the boss
         await this.boss.start();
 
-        // Create queues if they don't exist
+        // Create queues if they don't exist with queue-specific options
         // Optimized for single-user personal software: lower concurrency to save resources
         if (this.boss) {
-          await this.boss.createQueue(QueueName.AVATAR_GENERATION);
-          await this.boss.createQueue(QueueName.DROP_GENERATION);
+          const queueOptions = {
+            // Job expiration (23 hours 59 minutes = 86340 seconds - slightly under 24 hour limit)
+            expireInSeconds: 23 * 60 * 60 + 59 * 60,
+            // Delete completed jobs after 3 days (259200 seconds)
+            deleteAfterSeconds: 72 * 60 * 60,
+            // Retry configuration
+            retryLimit: 3,
+            retryDelay: 5000, // 5 seconds
+            retryBackoff: true,
+          };
+          await this.boss.createQueue(QueueName.AVATAR_GENERATION, queueOptions);
+          await this.boss.createQueue(QueueName.DROP_GENERATION, queueOptions);
         }
       }
 
