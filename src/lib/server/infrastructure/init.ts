@@ -84,21 +84,18 @@ export async function initializeApplication(): Promise<InitResult> {
       logger.error('Database initialization failed', { error: error.message });
     }
 
-    // Initialize queue service (optional - workers can be started separately)
-    // Only start workers if ENABLE_WORKERS env var is set
-    if (process.env.ENABLE_WORKERS === 'true') {
-      logger.info('Initializing queue workers');
-      try {
-        await startWorkers();
-        result.components.queue = true;
-        logger.info('Queue workers initialized successfully');
-      } catch (error: any) {
-        result.errors!.push(`Queue initialization failed: ${error.message}`);
-        logger.error('Queue initialization failed', { error: error.message });
-        // Don't fail overall initialization if queue fails
-      }
-    } else {
-      logger.info('Queue workers disabled (set ENABLE_WORKERS=true to enable)');
+    // Initialize queue service and workers automatically for personal software
+    // Workers start automatically - no configuration needed
+    logger.info('Initializing queue workers');
+    try {
+      await startWorkers();
+      result.components.queue = true;
+      logger.info('Queue workers initialized successfully');
+    } catch (error: any) {
+      result.errors!.push(`Queue initialization failed: ${error.message}`);
+      logger.error('Queue initialization failed', { error: error.message });
+      // Don't fail overall initialization if queue fails - allow graceful degradation
+      logger.warn('Continuing without queue workers - jobs will need to be processed manually');
     }
 
     // Determine overall success
@@ -163,9 +160,11 @@ export async function shutdownApplication(): Promise<void> {
 
   try {
     // Stop workers if they were started
-    if (process.env.ENABLE_WORKERS === 'true') {
+    try {
       const { stopWorkers } = await import('./queue/workerManager');
       await stopWorkers();
+    } catch (error: any) {
+      logger.warn('Error stopping workers during shutdown', { error: error.message });
     }
 
     await DatabaseUtils.shutdown();

@@ -31,7 +31,7 @@ export enum QueueName {
 }
 
 class QueueService {
-  private boss: PgBoss | null = null;
+  private boss: any = null;
   private initialized = false;
 
   /**
@@ -49,44 +49,60 @@ class QueueService {
       }
 
       // Create pg-boss instance
-      this.boss = new PgBoss({
-        connectionString: config.database.url,
-        // Queue configuration
-        retryLimit: 3,
-        retryDelay: 5000, // 5 seconds
-        retryBackoff: true,
-        // Job expiration (24 hours)
-        expireInHours: 24,
-        // Delete completed jobs after 7 days
-        deleteAfterHours: 168,
-        // Schema for pg-boss tables
-        schema: 'pgboss',
-      });
+      // PgBoss can be a constructor or a function depending on version
+      const PgBossConstructor = (PgBoss as any).default || PgBoss;
+      this.boss = typeof PgBossConstructor === 'function' 
+        ? new PgBossConstructor({
+            connectionString: config.database.url,
+            // Queue configuration
+            retryLimit: 3,
+            retryDelay: 5000, // 5 seconds
+            retryBackoff: true,
+            // Job expiration (48 hours - more lenient for personal use)
+            expireInHours: 48,
+            // Delete completed jobs after 3 days (shorter retention for personal use)
+            deleteAfterHours: 72,
+            // Schema for pg-boss tables
+            schema: 'pgboss',
+          })
+        : PgBossConstructor({
+            connectionString: config.database.url,
+            retryLimit: 3,
+            retryDelay: 5000,
+            retryBackoff: true,
+            expireInHours: 48,
+            deleteAfterHours: 72,
+            schema: 'pgboss',
+          });
 
       // Set up event handlers
-      this.boss.on('error', (error) => {
-        logger.error('pg-boss error', { error: error.message });
-      });
+      if (this.boss) {
+        this.boss.on('error', (error: Error) => {
+          logger.error('Queue error', { error: error.message });
+        });
 
-      this.boss.on('monitor-states', (states) => {
-        logger.debug('pg-boss monitor states', { states });
-      });
+      // Only log monitor states in development for personal software
+      // Note: monitor-states event may not be available in all pg-boss versions
+      if (process.env.NODE_ENV === 'development' && typeof this.boss.on === 'function') {
+        try {
+          this.boss.on('monitor-states', (states: any) => {
+            logger.debug('Queue monitor states', { states });
+          });
+        } catch {
+          // Event not available, skip
+        }
+      }
 
-      // Start the boss
-      await this.boss.start();
+        // Start the boss
+        await this.boss.start();
 
-      // Create queues if they don't exist
-      await this.boss.createQueue(QueueName.AVATAR_GENERATION, {
-        // Process up to 2 avatar generations concurrently
-        teamSize: 2,
-        teamConcurrency: 2,
-      });
-
-      await this.boss.createQueue(QueueName.DROP_GENERATION, {
-        // Process up to 1 drop generation at a time (more resource intensive)
-        teamSize: 1,
-        teamConcurrency: 1,
-      });
+        // Create queues if they don't exist
+        // Optimized for single-user personal software: lower concurrency to save resources
+        if (this.boss) {
+          await this.boss.createQueue(QueueName.AVATAR_GENERATION);
+          await this.boss.createQueue(QueueName.DROP_GENERATION);
+        }
+      }
 
       this.initialized = true;
       logger.info('Queue service initialized successfully');
@@ -99,7 +115,7 @@ class QueueService {
   /**
    * Get the pg-boss instance
    */
-  getBoss(): PgBoss {
+  getBoss(): any {
     if (!this.boss || !this.initialized) {
       throw new Error('Queue service not initialized. Call initialize() first.');
     }
@@ -117,6 +133,10 @@ class QueueService {
       priority: 1,
       startAfter: new Date(), // Start immediately
     });
+
+    if (!jobId) {
+      throw new Error('Failed to enqueue avatar generation job');
+    }
 
     logger.info('Avatar generation job enqueued', {
       jobId,
@@ -138,6 +158,10 @@ class QueueService {
       startAfter: new Date(),
     });
 
+    if (!jobId) {
+      throw new Error('Failed to enqueue drop generation job');
+    }
+
     logger.info('Drop generation job enqueued', {
       jobId,
       dropId: data.dropId,
@@ -151,7 +175,14 @@ class QueueService {
    */
   async getJobStatus(jobId: string): Promise<any> {
     const boss = this.getBoss();
-    return await boss.getJobById(jobId);
+    // pg-boss getJobById might need queue name, try both approaches
+    try {
+      return await boss.getJobById(jobId);
+    } catch {
+      // If that fails, try with queue name
+      return await boss.getJobById(QueueName.AVATAR_GENERATION, jobId) || 
+             await boss.getJobById(QueueName.DROP_GENERATION, jobId);
+    }
   }
 
   /**
@@ -159,16 +190,81 @@ class QueueService {
    */
   async cancelJob(jobId: string): Promise<void> {
     const boss = this.getBoss();
-    await boss.cancel(jobId);
+    await boss.cancel([jobId]);
     logger.info('Job cancelled', { jobId });
   }
 
   /**
    * Get queue metrics
    */
-  async getQueueMetrics(queueName: QueueName): Promise<any> {
+  async getQueueMetrics(queueName: QueueName): Promise<{ pending: number; active: number; completed: number; failed: number }> {
     const boss = this.getBoss();
-    return await boss.getQueueSize(queueName);
+    try {
+      const queues = await boss.getQueues();
+      const queue = queues.find((q: any) => q.name === queueName);
+      if (queue && typeof queue === 'object') {
+        return {
+          pending: (queue as any).pending || 0,
+          active: (queue as any).active || 0,
+          completed: (queue as any).completed || 0,
+          failed: (queue as any).failed || 0,
+        };
+      }
+    } catch (error) {
+      logger.warn('Failed to get queue metrics', { queueName, error });
+    }
+    return { pending: 0, active: 0, completed: 0, failed: 0 };
+  }
+
+  /**
+   * Get comprehensive queue status for monitoring
+   */
+  async getQueueStatus(): Promise<{
+    initialized: boolean;
+    queues: {
+      [QueueName.AVATAR_GENERATION]: { pending: number; active: number; completed: number; failed: number };
+      [QueueName.DROP_GENERATION]: { pending: number; active: number; completed: number; failed: number };
+    };
+  }> {
+    if (!this.initialized || !this.boss) {
+      return {
+        initialized: false,
+        queues: {
+          [QueueName.AVATAR_GENERATION]: { pending: 0, active: 0, completed: 0, failed: 0 },
+          [QueueName.DROP_GENERATION]: { pending: 0, active: 0, completed: 0, failed: 0 },
+        },
+      };
+    }
+
+    try {
+      const queues = await this.boss.getQueues();
+      const avatarQueue = queues.find((q: any) => q.name === QueueName.AVATAR_GENERATION);
+      const dropQueue = queues.find((q: any) => q.name === QueueName.DROP_GENERATION);
+      
+      const getMetrics = (queue: any) => ({
+        pending: queue?.pending || 0,
+        active: queue?.active || 0,
+        completed: queue?.completed || 0,
+        failed: queue?.failed || 0,
+      });
+
+      return {
+        initialized: true,
+        queues: {
+          [QueueName.AVATAR_GENERATION]: getMetrics(avatarQueue),
+          [QueueName.DROP_GENERATION]: getMetrics(dropQueue),
+        },
+      };
+    } catch (error: any) {
+      logger.error('Failed to get queue status', { error: error.message });
+      return {
+        initialized: true,
+        queues: {
+          [QueueName.AVATAR_GENERATION]: { pending: 0, active: 0, completed: 0, failed: 0 },
+          [QueueName.DROP_GENERATION]: { pending: 0, active: 0, completed: 0, failed: 0 },
+        },
+      };
+    }
   }
 
   /**

@@ -62,10 +62,8 @@ export async function POST(request: NextRequest) {
       inputImageFileId: inputUpload.fileId,
     });
 
-    logger.info('Avatar generation job enqueued', {
+    logger.info('Avatar generation queued', {
       requestId: request.id,
-      jobId,
-      userId: finalUserId,
     });
 
     // Return immediately with the request ID
@@ -74,7 +72,7 @@ export async function POST(request: NextRequest) {
       requestId: request.id,
       jobId,
       status: 'pending',
-      message: 'Avatar generation queued successfully',
+      message: 'Avatar generation started. Check status using the request ID.',
     });
   } catch (error: any) {
     logger.error('Avatar generation API error', { error: error.message });

@@ -36,26 +36,31 @@ pg-boss automatically creates its own tables in the `pgboss` schema when initial
 
 No additional environment variables are required. The queue service uses the existing `DATABASE_URL`.
 
-Optional:
-- `ENABLE_WORKERS=true` - Automatically start workers when the application initializes
+**For Personal Software**: Workers start automatically when the application initializes - no configuration needed!
 
 ### 3. Starting Workers
 
-Workers can be started in two ways:
+**For Personal Software**: Workers start automatically when you run the application - no setup needed!
 
-#### Option A: Standalone Process (Recommended for Production)
+If you need to start workers manually (e.g., after a restart):
 
-Run workers in a separate process:
+#### Option A: Automatic (Default)
+
+Workers start automatically when the Next.js app initializes. Just run:
+
+```bash
+npm run dev
+# or
+npm start
+```
+
+#### Option B: Standalone Process
+
+Run workers in a separate process if needed:
 
 ```bash
 npm run workers:start
 ```
-
-This keeps workers running independently of the Next.js server.
-
-#### Option B: With Application (Development)
-
-Set `ENABLE_WORKERS=true` in your environment, and workers will start automatically when the application initializes.
 
 #### Option C: API Endpoint
 
@@ -141,26 +146,73 @@ The drop's `generationStatus` will be:
 
 ## Queue Configuration
 
+**Optimized for Single-User Personal Software:**
+
 ### Avatar Generation Queue
-- **Concurrency**: 2 jobs at a time
+- **Concurrency**: 1 job at a time (saves resources for personal use)
 - **Retry**: 3 attempts with exponential backoff
-- **Expiration**: 24 hours
+- **Expiration**: 48 hours (more lenient for personal use)
 
 ### Drop Generation Queue
 - **Concurrency**: 1 job at a time (more resource intensive)
 - **Retry**: 3 attempts with exponential backoff
-- **Expiration**: 24 hours
+- **Expiration**: 48 hours
+
+### Job Retention
+- **Completed jobs**: Deleted after 3 days (shorter retention for personal use)
+- **Failed jobs**: Kept for troubleshooting
 
 ## Monitoring
 
-### Queue Metrics
+### Queue Status Endpoint
+
+Check queue health easily:
+
+```bash
+GET /api/queue/status
+```
+
+Returns:
+```json
+{
+  "initialized": true,
+  "queues": {
+    "avatar-generation": {
+      "pending": 2,
+      "active": 1,
+      "completed": 10,
+      "failed": 0
+    },
+    "drop-generation": {
+      "pending": 0,
+      "active": 0,
+      "completed": 5,
+      "failed": 0
+    }
+  },
+  "message": "Queue is running"
+}
+```
+
+### Health Check
+
+Queue status is also included in the health check endpoint:
+
+```bash
+GET /api/health
+```
+
+### Programmatic Access
 
 You can check queue metrics programmatically:
 
 ```typescript
 import { queueService, QueueName } from '@/lib/server/infrastructure/queue/queueService';
 
-// Get queue size
+// Get queue status
+const status = await queueService.getQueueStatus();
+
+// Get queue metrics
 const metrics = await queueService.getQueueMetrics(QueueName.AVATAR_GENERATION);
 
 // Get job status

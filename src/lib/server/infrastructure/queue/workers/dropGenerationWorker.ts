@@ -17,8 +17,7 @@ export async function processDropGenerationJob(
   const { id: jobId, data } = job;
   const { dropId, baseAvatarId, stockLimit, traitConfig } = data;
 
-  logger.info('Processing drop generation job', {
-    jobId,
+  logger.info('Starting drop generation', {
     dropId,
     stockLimit,
   });
@@ -71,8 +70,7 @@ export async function processDropGenerationJob(
       },
     });
 
-    logger.info('Drop generation job completed', {
-      jobId,
+    logger.info('Drop generation completed', {
       dropId,
     });
   } catch (error: any) {

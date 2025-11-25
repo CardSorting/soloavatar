@@ -42,16 +42,15 @@ export async function POST(request: NextRequest) {
       traitConfig,
     });
 
-    logger.info('Drop generation job enqueued', {
+    logger.info('Drop created and generation started', {
       dropId: drop.id,
-      jobId,
     });
 
     return NextResponse.json({
       success: true,
       drop,
       jobId,
-      message: 'Drop created and generation queued successfully',
+      message: 'Drop created successfully. Variations are being generated in the background.',
     });
   } catch (error: any) {
     logger.error('Create drop API error', { error: error.message });

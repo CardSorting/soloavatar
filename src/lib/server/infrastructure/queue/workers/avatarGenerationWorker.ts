@@ -18,10 +18,9 @@ export async function processAvatarGenerationJob(
   const { id: jobId, data } = job;
   const { requestId, imageBase64, stylePrompt, userId, inputImageUrl, inputImageFileId } = data;
 
-  logger.info('Processing avatar generation job', {
-    jobId,
+  logger.info('Starting avatar generation', {
     requestId,
-    userId,
+    stylePrompt: stylePrompt.substring(0, 50) + (stylePrompt.length > 50 ? '...' : ''),
   });
 
   const startTime = Date.now();
@@ -78,8 +77,7 @@ The output should be a professional, high-resolution avatar that maintains the p
       },
     });
 
-    logger.info('Avatar generation job completed', {
-      jobId,
+    logger.info('Avatar generated successfully', {
       requestId,
       duration: `${duration}ms`,
       outputImageUrl,
@@ -123,8 +121,8 @@ export async function startAvatarGenerationWorker(): Promise<void> {
   const boss = queueService.getBoss();
 
   await boss.work(QueueName.AVATAR_GENERATION, {
-    teamSize: 2,
-    teamConcurrency: 2,
+    teamSize: 1,
+    teamConcurrency: 1,
   }, async (job: { id: string; data: AvatarGenerationJobData } | null) => {
     if (!job) {
       return;
