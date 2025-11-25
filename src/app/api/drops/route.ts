@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For simplicity, userId can be provided or default to 'anonymous'
-    const finalUserId = userId || 'anonymous';
+    // Single user system - userId is optional, defaults to 'single-user'
+    // This is kept for backward compatibility but not required
 
     // Create the drop
     const drop = await DropService.createDrop({
@@ -72,17 +72,10 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    let drops;
-    if (userId) {
-      // Get user's personal drops
-      drops = await DropService.getUserDrops(userId);
-    } else {
-      // Get all drops
-      drops = await DropService.getAllDrops(limit);
-    }
+    // Single user system - get all drops
+    const drops = await DropService.getAllDrops(limit);
 
     return NextResponse.json(drops);
   } catch (error: any) {

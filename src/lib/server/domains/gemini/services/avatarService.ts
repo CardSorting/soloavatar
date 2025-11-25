@@ -43,10 +43,10 @@ export class AvatarService {
       inputImageFileId = inputUpload.fileId;
 
       // Create request record in database
+      // Note: userId field removed from schema for single-user system
       try {
-        const request = await prisma.avatarForgeRequest.create({
+        const avatarRequest = await prisma.avatarForgeRequest.create({
           data: {
-            userId,
             stylePrompt,
             inputImageUrl,
             inputImageFileId,
@@ -54,7 +54,7 @@ export class AvatarService {
             status: 'processing',
           },
         });
-        requestId = request.id;
+        requestId = avatarRequest.id;
         logger.info('Avatar forge request created', { requestId, userId });
       } catch (dbError: any) {
         logger.warn('Failed to create avatar forge request record', {
@@ -171,11 +171,11 @@ The output should be a professional, high-resolution avatar that maintains the p
 
   /**
    * Get user's avatars
+   * Note: In single-user system, returns all avatars (userId parameter kept for API compatibility)
    */
   static async getUserAvatars(userId: string): Promise<any[]> {
     return prisma.avatarForgeRequest.findMany({
       where: {
-        userId,
         deletedAt: null,
       },
       orderBy: {

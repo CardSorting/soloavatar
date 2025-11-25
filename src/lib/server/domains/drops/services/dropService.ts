@@ -149,6 +149,15 @@ export class DropService {
   }
 
   /**
+   * Get user's drops (for single user system)
+   */
+  static async getUserDrops(userId: string): Promise<DropInfo[]> {
+    // In single-user system, all drops belong to the user
+    // This method is kept for API compatibility but returns all drops
+    return this.getAllDrops();
+  }
+
+  /**
    * Delete drop (soft delete) - Single user, no authorization needed
    */
   static async deleteDrop(dropId: string): Promise<void> {

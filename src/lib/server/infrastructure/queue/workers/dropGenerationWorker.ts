@@ -41,24 +41,87 @@ export async function processDropGenerationJob(
       throw new Error('Base avatar not found or not completed');
     }
 
-    // TODO: Implement actual variation generation logic
-    // For now, we'll just mark it as completed
-    // This is a placeholder for future implementation
+    // Generate variations for the drop
+    // For now, we create database records with the base avatar image
+    // Future enhancement: Use Replicate/Gemini to generate actual variations with traits
     
-    // Simulate progress updates
-    const progressSteps = 10;
-    for (let i = 1; i <= progressSteps; i++) {
-      const progress = Math.floor((i / progressSteps) * 100);
-      
+    const variationsToGenerate = Math.min(stockLimit, 50); // Limit to 50 for now
+    
+    // Basic trait categories for variation (can be enhanced with traitConfig)
+    const traitCategories = traitConfig?.categories || [
+      { name: 'Background', values: ['Solid', 'Gradient', 'Pattern', 'Abstract'] },
+      { name: 'Effect', values: ['None', 'Glow', 'Shadow', 'Sparkle'] },
+      { name: 'Frame', values: ['None', 'Circle', 'Square', 'Hexagon'] },
+    ];
+
+    // Calculate rarity distribution
+    const rarityDistribution = {
+      common: Math.floor(variationsToGenerate * 0.5),
+      uncommon: Math.floor(variationsToGenerate * 0.3),
+      rare: Math.floor(variationsToGenerate * 0.15),
+      epic: Math.floor(variationsToGenerate * 0.04),
+      legendary: Math.max(1, variationsToGenerate - Math.floor(variationsToGenerate * 0.99)),
+    };
+
+    const rarities: Array<'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'> = [
+      'common', 'uncommon', 'rare', 'epic', 'legendary'
+    ];
+
+    let rarityIndex = 0;
+    let rarityCount = 0;
+    const currentRarity = rarities[rarityIndex];
+    const maxForRarity = rarityDistribution[currentRarity];
+
+    // Generate each variation
+    for (let tokenNumber = 1; tokenNumber <= variationsToGenerate; tokenNumber++) {
+      // Determine rarity for this token
+      if (rarityCount >= maxForRarity && rarityIndex < rarities.length - 1) {
+        rarityIndex++;
+        rarityCount = 0;
+      }
+      const currentRarity = rarities[rarityIndex];
+      rarityCount++;
+
+      // Generate random traits for this variation
+      const traits = traitCategories.map((category: any) => {
+        const randomValue = category.values[Math.floor(Math.random() * category.values.length)];
+        return {
+          trait_type: category.name,
+          value: randomValue,
+        };
+      });
+
+      // Calculate rarity score (simplified - can be enhanced)
+      const rarityScore = {
+        common: 0.1,
+        uncommon: 0.3,
+        rare: 0.6,
+        epic: 0.85,
+        legendary: 0.99,
+      }[currentRarity];
+
+      // Create the generated avatar record
+      // Note: For now, we use the base avatar image
+      // Future: Generate actual variation using Replicate/Gemini with trait-based prompts
+      await prisma.dropGeneratedAvatar.create({
+        data: {
+          listingId: dropId,
+          tokenNumber,
+          traits: traits as any,
+          rarity: currentRarity,
+          rarityScore: rarityScore,
+          avatarImageUrl: baseAvatar.outputImageUrl, // Using base for now
+        },
+      });
+
+      // Update progress
+      const progress = Math.floor((tokenNumber / variationsToGenerate) * 100);
       await prisma.dropListing.update({
         where: { id: dropId },
         data: {
           generationProgress: progress,
         },
       });
-
-      // Simulate work delay
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     // Mark as completed

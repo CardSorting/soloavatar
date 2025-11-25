@@ -6,9 +6,15 @@ import { queueService } from '@/lib/server/infrastructure/queue/queueService';
 import { prisma } from '@/lib/server/infrastructure/database/prisma';
 import { StorageService } from '@/lib/server/infrastructure/storage/storageService';
 
+interface GenerateAvatarRequestBody {
+  imageBase64: string;
+  stylePrompt: string;
+  userId?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json() as GenerateAvatarRequestBody;
     const { imageBase64, stylePrompt, userId } = body;
 
     if (!imageBase64) {
@@ -25,8 +31,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For simplicity, userId can be provided or default to 'anonymous'
-    const finalUserId = userId || 'anonymous';
+    // Single user system - use default user ID
+    const finalUserId: string = userId || 'single-user';
 
     // Ensure queue service is initialized
     if (!queueService.isInitialized()) {
@@ -41,9 +47,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Create request record in database with pending status
-    const request = await prisma.avatarForgeRequest.create({
+    // Note: userId field removed from schema for single-user system
+    const avatarRequest = await prisma.avatarForgeRequest.create({
       data: {
-        userId: finalUserId,
         stylePrompt,
         inputImageUrl: inputUpload.url,
         inputImageFileId: inputUpload.fileId,
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Enqueue the avatar generation job
     const jobId = await queueService.enqueueAvatarGeneration({
-      requestId: request.id,
+      requestId: avatarRequest.id,
       imageBase64,
       stylePrompt,
       userId: finalUserId,
@@ -63,13 +69,13 @@ export async function POST(request: NextRequest) {
     });
 
     logger.info('Avatar generation queued', {
-      requestId: request.id,
+      requestId: avatarRequest.id,
     });
 
     // Return immediately with the request ID
     return NextResponse.json({
       success: true,
-      requestId: request.id,
+      requestId: avatarRequest.id,
       jobId,
       status: 'pending',
       message: 'Avatar generation started. Check status using the request ID.',

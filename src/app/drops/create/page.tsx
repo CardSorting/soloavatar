@@ -13,7 +13,6 @@ interface Avatar {
 
 export default function CreateDropPage() {
   const router = useRouter();
-  const [userId, setUserId] = useState('');
   const [avatars, setAvatars] = useState<Avatar[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedAvatarId, setSelectedAvatarId] = useState('');
@@ -23,14 +22,12 @@ export default function CreateDropPage() {
   const [collectionName, setCollectionName] = useState('');
 
   useEffect(() => {
-    if (userId) {
-      fetchUserAvatars();
-    }
-  }, [userId]);
+    fetchUserAvatars();
+  }, []);
 
   const fetchUserAvatars = async () => {
     try {
-      const response = await fetch(`/api/avatars/user/${userId}`);
+      const response = await fetch('/api/avatars/user/single-user');
       if (response.ok) {
         const data = await response.json();
         // Only show completed avatars
@@ -43,7 +40,7 @@ export default function CreateDropPage() {
   };
 
   const handleCreateDrop = async () => {
-    if (!selectedAvatarId || !title || !userId) {
+    if (!selectedAvatarId || !title) {
       alert('Please fill in all required fields');
       return;
     }
@@ -59,14 +56,13 @@ export default function CreateDropPage() {
           description: description || undefined,
           stockLimit,
           collectionName: collectionName || undefined,
-          userId,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
         alert('Drop created successfully!');
-        router.push(`/gallery/${userId}`);
+        router.push('/gallery/single-user');
       } else {
         const error = await response.json();
         alert(`Failed to create drop: ${error.error}`);
@@ -84,19 +80,7 @@ export default function CreateDropPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">Create Instant Drop</h1>
 
-        <div className="bg-white rounded-lg border p-6 mb-6">
-          <label className="block mb-2 font-semibold">User ID</label>
-          <input
-            type="text"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="Enter your user ID"
-            className="w-full px-4 py-2 border rounded-lg"
-          />
-        </div>
-
-        {userId && (
-          <>
+        <>
             <div className="bg-white rounded-lg border p-6 mb-6">
               <label className="block mb-2 font-semibold">Select Base Avatar *</label>
               {avatars.length === 0 ? (
@@ -177,8 +161,7 @@ export default function CreateDropPage() {
             >
               {loading ? 'Creating...' : 'Create Drop Instantly'}
             </button>
-          </>
-        )}
+        </>
       </div>
     </div>
   );

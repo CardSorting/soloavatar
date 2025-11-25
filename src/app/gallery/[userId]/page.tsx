@@ -35,7 +35,9 @@ export default function GalleryPage() {
   useEffect(() => {
     const fetchGallery = async () => {
       try {
-        const response = await fetch(`/api/gallery/${userId}`);
+        // Single user system - use 'single-user' as default
+        const galleryUserId = userId || 'single-user';
+        const response = await fetch(`/api/gallery/${galleryUserId}`);
         if (response.ok) {
           const data = await response.json();
           setGallery(data);
@@ -47,9 +49,7 @@ export default function GalleryPage() {
       }
     };
 
-    if (userId) {
-      fetchGallery();
-    }
+    fetchGallery();
   }, [userId]);
 
   if (loading) {

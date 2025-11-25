@@ -32,17 +32,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json();
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      );
-    }
-
-    await DropService.deleteDrop(params.id, userId);
+    // Single user system - no userId needed
+    await DropService.deleteDrop(params.id);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
