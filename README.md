@@ -121,27 +121,42 @@ avatar-drop-system/
 ### Avatar Generation
 
 - `POST /api/avatars/generate` - Generate a new avatar
-  ```json
-  {
-    "imageBase64": "data:image/png;base64,...",
-    "stylePrompt": "cyberpunk style, neon lighting...",
-    "userId": "user123" // optional, defaults to "anonymous"
-  }
-  ```
-
 - `GET /api/avatars/[id]` - Get avatar by ID
+- `PATCH /api/avatars/[id]` - Update avatar metadata (tags, favorite, rating, notes, collectionId)
+- `POST /api/avatars/batch-generate` - Generate multiple avatars from one image
+- `POST /api/avatars/[id]/regenerate` - Regenerate avatar with new style
 - `GET /api/avatars/user/[userId]` - Get user's avatars
 
 ### Drops
 
 - `POST /api/drops` - Create a new drop (instant, no scheduling)
-- `GET /api/drops` - List drops (optionally filter by userId)
+- `GET /api/drops` - List drops
 - `GET /api/drops/[id]` - Get drop details
 - `DELETE /api/drops/[id]` - Delete a drop
+- `GET /api/drops/[id]/variations` - Get generated variations
+- `GET /api/drops/[id]/generation-status` - Get generation progress
+- `POST /api/drops/[id]/claim` - Claim/assign variation token
 
-### Personal Gallery
+### Collections
 
-- `GET /api/gallery/[userId]` - Get user's personal gallery (avatars + drops combined)
+- `GET /api/collections` - List collections (with search)
+- `POST /api/collections` - Create collection
+- `GET /api/collections/[id]` - Get collection
+- `PATCH /api/collections/[id]` - Update collection
+- `DELETE /api/collections/[id]` - Delete collection
+- `POST /api/collections/[id]/items` - Add items to collection
+- `DELETE /api/collections/[id]/items` - Remove items from collection
+
+### Gallery & Search
+
+- `GET /api/gallery/[userId]` - Get gallery with filters (type, collection, tags, favorite, search, sort)
+- `GET /api/search` - Full-text search across avatars, drops, and collections
+
+### Statistics
+
+- `GET /api/stats` - Get collection statistics
+
+**See `API_REFERENCE.md` for complete API documentation.**
 
 ## Database Schema
 
@@ -207,21 +222,34 @@ npm run build
 npm start
 ```
 
-## Simplifications
+## Features
 
-This extracted version removes:
-- Authentication system (user IDs are simple strings)
-- Payment/credit system
-- Marketplace features (only drops)
-- Complex attribution/metadata systems
-- Queue systems (synchronous processing)
+### ✅ Complete Features
+
+- **Avatar Generation**: Generate styled avatars using Google Gemini API
+- **Drop System**: Create drops with trait-based variation generation
+- **Replicate Integration**: Generate unique variations using Replicate API
+- **Collection Management**: Organize avatars into collections
+- **Metadata Management**: Tags, favorites, ratings, notes
+- **Search & Filter**: Full-text search and advanced filtering
+- **Statistics**: Collection analytics and insights
+- **Batch Operations**: Generate multiple avatars at once
+- **Queue System**: Async processing for long-running tasks
+
+### Single-User System
+
+This is a **single-user, personal software** system:
+- No authentication required (defaults to `'single-user'`)
+- All data belongs to the single user
+- Simplified architecture for personal use
+- Ready for personal deployment
 
 ## Notes
 
-- Storage service is simplified - uses data URLs by default
-- For production, replace `StorageService` with cloud storage (S3, Backblaze, etc.)
-- User IDs are simple strings - integrate with your auth system as needed
-- Drop purchases are simplified - no actual payment processing
+- Storage service uses local file storage by default
+- For production, consider cloud storage (S3, Backblaze, etc.)
+- Replicate API is optional - system falls back gracefully if not configured
+- Queue system handles async processing automatically
 
 ## License
 
