@@ -13,16 +13,21 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:generate:if-needed": "node -e \"const fs=require('fs');const path=require('path');const schema=path.join(process.cwd(),'prisma/schema.prisma');const client=path.join(process.cwd(),'node_modules/.prisma/client/index.d.ts');const schemaTime=fs.existsSync(schema)?fs.statSync(schema).mtimeMs:0;const clientTime=fs.existsSync(client)?fs.statSync(client).mtimeMs:0;if(!clientTime||schemaTime>clientTime){console.log('Generating Prisma client...');require('child_process').execSync('prisma generate',{stdio:'inherit'});}else{console.log('Prisma client up to date, skipping generation');}\""
+    "prisma:generate:if-needed": "node -e \"const fs=require('fs');const path=require('path');const schema=path.join(process.cwd(),'prisma/schema.prisma');const client=path.join(process.cwd(),'node_modules/.prisma/client/index.d.ts');const schemaTime=fs.existsSync(schema)?fs.statSync(schema).mtimeMs:0;const clientTime=fs.existsSync(client)?fs.statSync(client).mtimeMs:0;if(!clientTime||schemaTime>clientTime){console.log('Generating Prisma client...');require('child_process').execSync('prisma generate',{stdio:'inherit'});}else{console.log('Prisma client up to date, skipping generation');}\"",
+    "db:up": "docker-compose up -d postgres",
+    "db:down": "docker-compose down",
+    "db:reset": "docker-compose down -v && docker-compose up -d postgres",
+    "db:setup": "npm run db:up && sleep 3 && npm run prisma:migrate:dev -- --name init",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "latest",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.554.0",
     "next": "^15.1.0",
     "pg": "^8.13.1",
-    "prisma": "^6.19.0",
+    "prisma": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "replicate": "^0.34.1",
@@ -45,4 +50,3 @@
     "typescript": "^5.6.2"
   }
 }
-

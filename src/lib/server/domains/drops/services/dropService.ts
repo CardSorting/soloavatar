@@ -9,7 +9,6 @@ import logger from '../../../shared/utils/logger';
 
 export interface CreateDropInput {
   baseAvatarId: string;
-  creatorId: string;
   title: string;
   description?: string;
   stockLimit: number;
@@ -20,7 +19,6 @@ export interface CreateDropInput {
 export interface DropInfo {
   id: string;
   baseAvatarId: string;
-  creatorId: string;
   title: string;
   description: string | null;
   stockLimit: number;
@@ -68,11 +66,10 @@ export class DropService {
         throw new BadRequestError('Base avatar must be completed before creating a drop');
       }
 
-      // Create drop (instantly available)
+      // Create drop (instantly available) - All drops belong to the single user
       const drop = await prisma.dropListing.create({
         data: {
           baseAvatarId: input.baseAvatarId,
-          creatorId: input.creatorId,
           title: input.title.trim(),
           description: input.description?.trim() || null,
           stockLimit: input.stockLimit,
@@ -94,7 +91,6 @@ export class DropService {
 
       logger.info('Drop created instantly', {
         dropId: drop.id,
-        creatorId: input.creatorId,
         stockLimit: input.stockLimit,
       });
 
@@ -128,32 +124,7 @@ export class DropService {
   }
 
   /**
-   * Get user's drops (personal gallery)
-   */
-  static async getUserDrops(userId: string): Promise<DropInfo[]> {
-    const drops = await prisma.dropListing.findMany({
-      where: {
-        creatorId: userId,
-        deletedAt: null,
-      },
-      include: {
-        baseAvatar: {
-          select: {
-            id: true,
-            outputImageUrl: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return drops as DropInfo[];
-  }
-
-  /**
-   * Get all drops (for browsing)
+   * Get all drops (personal gallery - single user system)
    */
   static async getAllDrops(limit: number = 50): Promise<DropInfo[]> {
     const drops = await prisma.dropListing.findMany({
@@ -178,19 +149,15 @@ export class DropService {
   }
 
   /**
-   * Delete drop (soft delete)
+   * Delete drop (soft delete) - Single user, no authorization needed
    */
-  static async deleteDrop(dropId: string, userId: string): Promise<void> {
+  static async deleteDrop(dropId: string): Promise<void> {
     const drop = await prisma.dropListing.findUnique({
       where: { id: dropId },
     });
 
-    if (!drop) {
+    if (!drop || drop.deletedAt) {
       throw new BadRequestError('Drop not found');
-    }
-
-    if (drop.creatorId !== userId) {
-      throw new BadRequestError('Not authorized to delete this drop');
     }
 
     await prisma.dropListing.update({
@@ -200,7 +167,6 @@ export class DropService {
       },
     });
 
-    logger.info('Drop deleted', { dropId, userId });
+    logger.info('Drop deleted', { dropId });
   }
 }
-

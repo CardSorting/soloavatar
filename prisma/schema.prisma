@@ -13,6 +13,133 @@ datasource db {
 }
 
 // ============================================
+// COLLECTION SYSTEM
+// ============================================
+
+/// Collections for organizing avatars and drops
+model AvatarCollection {
+  /// Unique collection identifier
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Collection name
+  name String @db.VarChar(255)
+
+  /// Collection description
+  description String? @db.Text
+
+  /// Color for UI representation (hex code)
+  color String? @db.VarChar(7)
+
+  /// Cover image URL
+  coverImageUrl String? @db.Text
+
+  /// Collection creation timestamp
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// Last modification timestamp
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  /// Soft delete timestamp (NULL = not deleted)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  avatars AvatarForgeRequest[]
+
+  // Indexes
+  @@index([name], map: "idx_collection_name")
+  @@index([createdAt(sort: Desc)], map: "idx_collection_created")
+  @@map("avatar_collections")
+}
+
+/// Generation job tracking for async processing
+model GenerationJob {
+  /// Unique job identifier
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Job type: 'avatar_single' | 'avatar_batch' | 'drop_variations' | 'drop_single'
+  jobType String @map("job_type") @db.VarChar(30)
+
+  /// Job status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  status String @default("pending") @db.VarChar(20)
+
+  /// Progress percentage (0-100)
+  progress Int @default(0)
+
+  /// Total items to process (for batch jobs)
+  totalItems Int @default(1) @map("total_items")
+
+  /// Completed items count
+  completedItems Int @default(0) @map("completed_items")
+
+  /// Job configuration (JSON with params)
+  config Json @db.JsonB
+
+  /// Job result data (JSON with results/outputs)
+  result Json? @db.JsonB
+
+  /// Error message if failed
+  errorMessage String? @map("error_message") @db.Text
+
+  /// Priority level (higher = more important)
+  priority Int @default(1)
+
+  /// Started processing timestamp
+  startedAt DateTime? @map("started_at")
+
+  /// Completed timestamp
+  completedAt DateTime? @map("completed_at")
+
+  /// Job creation timestamp
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// Last modification timestamp
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Indexes
+  @@index([status], map: "idx_generation_job_status")
+  @@index([jobType], map: "idx_generation_job_type")
+  @@index([priority(sort: Desc), createdAt], map: "idx_generation_job_priority")
+  @@map("generation_jobs")
+}
+
+/// Collection statistics for dashboard and insights
+model CollectionStats {
+  /// Unique stats record identifier
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Total number of avatars in collection
+  totalAvatars Int @default(0) @map("total_avatars")
+
+  /// Total number of drops in collection
+  totalDrops Int @default(0) @map("total_drops")
+
+  /// Total number of generated variations
+  totalVariations Int @default(0) @map("total_variations")
+
+  /// Total number of favorite items
+  totalFavorites Int @default(0) @map("total_favorites")
+
+  /// Average rating across rated items
+  averageRating Decimal? @map("average_rating") @db.Decimal(3, 2)
+
+  /// Number of items by rarity
+  rarityDistribution Json @default("{\"common\":0,\"uncommon\":0,\"rare\":0,\"epic\":0,\"legendary\":0}") @map("rarity_distribution") @db.JsonB
+
+  /// Top tags used in collection
+  topTags Json @default("[]") @map("top_tags") @db.JsonB
+
+  /// Storage usage in bytes
+  storageUsed Int @default(0) @map("storage_used")
+
+  /// Last time statistics were updated
+  lastUpdated DateTime @default(now()) @updatedAt @map("last_updated") @db.Timestamptz(6)
+
+  // Indexes
+  @@index([lastUpdated(sort: Desc)], map: "idx_collection_stats_updated")
+  @@map("collection_stats")
+}
+
+// ============================================
 // AVATAR DOMAIN
 // ============================================
 
@@ -21,9 +148,6 @@ datasource db {
 model AvatarForgeRequest {
   /// Unique request identifier
   id String @id @default(uuid()) @db.Uuid
-
-  /// User identifier (simplified - can be any string identifier)
-  userId String @map("user_id") @db.VarChar(255)
 
   /// Style prompt used for generation
   stylePrompt String @map("style_prompt") @db.Text
@@ -49,6 +173,21 @@ model AvatarForgeRequest {
   /// Processing time in milliseconds
   processingTimeMs Int? @map("processing_time_ms") @db.Integer
 
+  /// Reference to collection (optional)
+  collectionId String? @map("collection_id") @db.Uuid
+
+  /// Flexible tags for organization
+  tags String[] @default([])
+
+  /// Rating (1-5 stars)
+  rating Int?
+
+  /// Notes about this avatar
+  notes String? @db.Text
+
+  /// Whether this is a favorite
+  favorite Boolean @default(false)
+
   /// Request creation timestamp
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -60,12 +199,15 @@ model AvatarForgeRequest {
 
   // Relations
   dropListings DropListing[]
+  collection AvatarCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
 
   // Indexes
-  @@index([userId, createdAt(sort: Desc)], map: "idx_avatar_forge_user")
+  @@index([collectionId], map: "idx_avatar_forge_collection")
   @@index([status], map: "idx_avatar_forge_status")
+  @@index([favorite], map: "idx_avatar_forge_favorite")
+  @@index([rating], map: "idx_avatar_forge_rating")
   @@index([createdAt(sort: Desc)], map: "idx_avatar_forge_created")
-  @@index([userId, status, createdAt(sort: Desc)], map: "idx_avatar_forge_user_status")
+  @@index([tags], map: "idx_avatar_forge_tags")
   @@map("avatar_forge_requests")
 }
 
@@ -81,9 +223,6 @@ model DropListing {
 
   /// Reference to the base avatar (from AvatarForgeRequest)
   baseAvatarId String @map("base_avatar_id") @db.Uuid
-
-  /// Creator's user ID
-  creatorId String @map("creator_id") @db.VarChar(255)
 
   /// Listing title
   title String @db.VarChar(255)
@@ -124,8 +263,8 @@ model DropListing {
   generatedAvatars DropGeneratedAvatar[]
 
   // Indexes
-  @@index([creatorId, createdAt(sort: Desc)], map: "idx_drop_listing_creator")
-  @@index([creatorId, deletedAt], map: "idx_drop_listing_creator_active")
+  @@index([createdAt(sort: Desc)], map: "idx_drop_listing_created")
+  @@index([deletedAt], map: "idx_drop_listing_active")
   @@index([collectionName], map: "idx_drop_listing_collection")
   @@map("drop_listings")
 }
@@ -216,4 +355,3 @@ model DropGeneratedAvatar {
   @@index([listingId, tokenNumber(sort: Asc)], map: "idx_drop_generated_avatar_token_number")
   @@map("drop_generated_avatars")
 }
-

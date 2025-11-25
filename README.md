@@ -57,6 +57,23 @@ Edit `.env` with your configuration:
 - `REPLICATE_API_TOKEN` - Your Replicate API token (for drops)
 
 4. Set up the database:
+
+**Option A: Local PostgreSQL with Docker (Recommended)**
+
+```bash
+# Start PostgreSQL database
+npm run db:setup
+
+# This will:
+# 1. Start PostgreSQL container
+# 2. Create initial migration
+# 3. Generate Prisma client
+```
+
+**Option B: Manual PostgreSQL setup**
+
+Ensure you have PostgreSQL running and create a database named `avatar_drop_system`, then:
+
 ```bash
 # Generate Prisma client
 npm run prisma:generate
@@ -149,7 +166,28 @@ avatar-drop-system/
 
 ## Development
 
-### Database Migrations
+### Database Operations
+
+**Quick Setup Scripts:**
+
+```bash
+# Start PostgreSQL database + run initial migration
+npm run db:setup
+
+# Start PostgreSQL database
+npm run db:up
+
+# Stop PostgreSQL database
+npm run db:down
+
+# Reset database (removes all data)
+npm run db:reset
+
+# Open Prisma Studio (database GUI)
+npm run db:studio
+```
+
+**Migration Commands:**
 
 ```bash
 # Create a new migration
@@ -158,8 +196,8 @@ npm run prisma:migrate:dev
 # Apply migrations (production)
 npm run prisma:migrate:deploy
 
-# Open Prisma Studio
-npm run prisma:studio
+# Generate Prisma client (automatically done in db:setup)
+npm run prisma:generate
 ```
 
 ### Building for Production
@@ -188,4 +226,3 @@ This extracted version removes:
 ## License
 
 MIT
-
