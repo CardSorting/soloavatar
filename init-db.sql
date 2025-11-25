@@ -5,6 +5,30 @@
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Fix collation version warning (PostgreSQL 15 compatibility)
+-- This updates the database collation version to match the actual collation version
+DO $$
+DECLARE
+    coll_oid oid;
+    actual_version text;
+    db_collate text;
+BEGIN
+    -- Get the database's collation name
+    SELECT datcollate INTO db_collate FROM pg_database WHERE datname = current_database();
+    
+    -- Find the collation OID matching the database collation
+    SELECT oid INTO coll_oid FROM pg_collation WHERE collname = db_collate LIMIT 1;
+    
+    IF coll_oid IS NOT NULL THEN
+        actual_version := pg_collation_actual_version(coll_oid);
+        IF actual_version IS NOT NULL THEN
+            UPDATE pg_database 
+            SET datcollversion = actual_version 
+            WHERE datname = current_database();
+        END IF;
+    END IF;
+END $$;
+
 -- Create database if it doesn't exist (usually handled by environment variables)
 -- This is just for documentation purposes
 
