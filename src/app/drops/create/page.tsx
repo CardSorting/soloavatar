@@ -11,6 +11,13 @@ interface Avatar {
   createdAt: string;
 }
 
+const phases = [
+  { label: 'Source', detail: 'Pick a generated avatar' },
+  { label: 'Story', detail: 'Craft a title and purpose' },
+  { label: 'Supply', detail: 'Set stock and collection' },
+  { label: 'Drop', detail: 'Launch + share instantly' },
+];
+
 export default function CreateDropPage() {
   const router = useRouter();
   const [avatars, setAvatars] = useState<Avatar[]>([]);
@@ -30,7 +37,6 @@ export default function CreateDropPage() {
       const response = await fetch('/api/avatars/user/single-user');
       if (response.ok) {
         const data = await response.json();
-        // Only show completed avatars
         const completed = data.filter((a: Avatar) => a.status === 'completed' && a.outputImageUrl);
         setAvatars(completed);
       }
@@ -60,8 +66,7 @@ export default function CreateDropPage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        alert('Drop created successfully!');
+        await response.json();
         router.push('/gallery/single-user');
       } else {
         const error = await response.json();
@@ -76,120 +81,216 @@ export default function CreateDropPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-2">Create Instant Drop</h1>
-          <p className="text-gray-600 text-lg">Create a drop from your avatars - ready to claim instantly</p>
+    <section className="space-y-8">
+      <div className="desktop-window">
+        <div className="desktop-titlebar">
+          <span>Drop drawer</span>
+          <span className="ml-auto text-[0.6rem] uppercase tracking-[0.3em] text-emerald-200">Optional tool</span>
         </div>
+        <div className="desktop-window__content flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4">
+            <h1 className="text-4xl font-black">Package avatars into drops only when it serves the story.</h1>
+            <p className="text-white/70 max-w-2xl">
+              Avatars live happily in your Library until you open this drawer. Build scarcity, add a little lore, and
+              share once you’re ready—closing the drawer keeps things private.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => router.push('/gallery/single-user')}
+                className="rounded-2xl border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:text-white hover:border-white/40 transition"
+              >
+                Skip for now · go to Library
+              </button>
+              <a href="/avatars/create" className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white">
+                Need another avatar?
+              </a>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 w-full lg:w-[320px]">
+            <div className="desktop-pane">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/50">Available avatars</p>
+              <p className="text-3xl font-bold">{avatars.length}</p>
+              <p className="text-xs text-white/60">Completed & ready</p>
+            </div>
+            <div className="desktop-pane">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/50">Typical stock</p>
+              <p className="text-3xl font-bold">25</p>
+              <p className="text-xs text-white/60">Median release</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <>
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8 mb-6">
-              <label className="block mb-4 text-lg font-bold text-gray-900">Select Base Avatar *</label>
+      <div className="desktop-window">
+        <div className="desktop-titlebar">
+          <span>Journey map</span>
+          <span className="ml-auto text-[0.6rem] uppercase tracking-[0.3em] text-white/35">Optional finale</span>
+        </div>
+        <div className="desktop-window__content grid gap-4 md:grid-cols-4">
+          {phases.map((phase, index) => (
+            <div key={phase.label} className="desktop-pane">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl border border-white/15 flex items-center justify-center font-semibold">
+                  0{index + 1}
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/50">{phase.label}</p>
+                  <p className="text-sm text-white/80">{phase.detail}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="space-y-6">
+          <section className="desktop-window">
+            <div className="desktop-titlebar">
+              <span>Source avatar</span>
+              <span className="ml-auto text-[0.6rem] uppercase tracking-[0.3em] text-white/40">
+                {selectedAvatarId ? 'Selected' : 'Required'}
+              </span>
+            </div>
+            <div className="desktop-window__content">
               {avatars.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
-                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-gray-500 font-medium">No completed avatars found</p>
-                  <p className="text-sm text-gray-400 mt-2">Create an avatar first to use as a base</p>
-                  <a
-                    href="/avatars/create"
-                    className="inline-block mt-4 px-4 py-2 text-blue-600 font-semibold hover:text-blue-700"
-                  >
-                    Create Avatar →
-                  </a>
+                <div className="text-center py-12 border-2 border-dashed border-white/15 rounded-2xl">
+                  <p className="font-semibold">No completed avatars yet</p>
+                  <p className="text-sm text-white/60 mt-1">Create an avatar first to use as a drop base.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {avatars.map((avatar) => (
-                    <div
+                    <button
+                      type="button"
                       key={avatar.id}
                       onClick={() => setSelectedAvatarId(avatar.id)}
-                      className={`cursor-pointer border-2 rounded-xl overflow-hidden transition-all duration-200 transform hover:scale-105 ${
+                      className={`relative rounded-2xl overflow-hidden border transition ${
                         selectedAvatarId === avatar.id
-                          ? 'border-purple-500 ring-4 ring-purple-200 shadow-lg'
-                          : 'border-gray-200 hover:border-gray-400'
+                          ? 'border-purple-300 shadow-[0_15px_50px_rgba(32,3,43,0.9)]'
+                          : 'border-white/10 hover:border-white/30'
                       }`}
                     >
                       {avatar.outputImageUrl && (
-                        <img
-                          src={avatar.outputImageUrl}
-                          alt="Avatar"
-                          className="w-full aspect-square object-cover"
-                        />
+                        <img src={avatar.outputImageUrl} alt="Avatar" className="aspect-square object-cover w-full" />
                       )}
-                    </div>
+                      {selectedAvatarId === avatar.id && (
+                        <div className="absolute inset-0 border-2 border-white/70 pointer-events-none rounded-2xl" />
+                      )}
+                    </button>
                   ))}
                 </div>
               )}
             </div>
+          </section>
 
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8 mb-6">
-              <label className="block mb-3 text-lg font-bold text-gray-900">Drop Title *</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="My Awesome Drop"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-              />
+          <section className="desktop-window">
+            <div className="desktop-titlebar">
+              <span>Story & supply</span>
             </div>
-
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8 mb-6">
-              <label className="block mb-3 text-lg font-bold text-gray-900">Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your drop..."
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-none"
-                rows={4}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8">
-                <label className="block mb-3 text-lg font-bold text-gray-900">Stock Limit *</label>
-                <input
-                  type="number"
-                  value={stockLimit}
-                  onChange={(e) => setStockLimit(parseInt(e.target.value) || 10)}
-                  min={1}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                />
-                <p className="text-sm text-gray-500 mt-2">Maximum number of items available</p>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sm:p-8">
-                <label className="block mb-3 text-lg font-bold text-gray-900">Collection Name</label>
+            <div className="desktop-window__content space-y-5">
+              <div>
+                <label className="text-sm font-semibold text-white">Drop title *</label>
                 <input
                   type="text"
-                  value={collectionName}
-                  onChange={(e) => setCollectionName(e.target.value)}
-                  placeholder="My Collection"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Midnight Neon Guardians"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-300/70"
                 />
-                <p className="text-sm text-gray-500 mt-2">Optional collection grouping</p>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-white">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Tell collectors what makes this drop special..."
+                  rows={4}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-300/70"
+                />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-white">Stock limit *</label>
+                  <input
+                    type="number"
+                    value={stockLimit}
+                    onChange={(e) => setStockLimit(parseInt(e.target.value) || 1)}
+                    min={1}
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white focus:outline-none focus:border-purple-300/70"
+                  />
+                  <p className="text-xs text-white/60 mt-2">Keep it scarce to heighten demand.</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-white">Collection name</label>
+                  <input
+                    type="text"
+                    value={collectionName}
+                    onChange={(e) => setCollectionName(e.target.value)}
+                    placeholder="Neon Heist Vol. 1"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-300/70"
+                  />
+                  <p className="text-xs text-white/60 mt-2">Optional grouping for your drops.</p>
+                </div>
               </div>
             </div>
+          </section>
 
-            <button
-              onClick={handleCreateDrop}
-              disabled={loading || !selectedAvatarId || !title}
-              className="w-full px-8 py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-bold text-lg rounded-xl hover:from-purple-700 hover:to-purple-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl disabled:transform-none disabled:shadow-none"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  Creating...
-                </span>
-              ) : (
-                'Create Drop Instantly'
-              )}
-            </button>
-        </>
+          <div className="desktop-window">
+            <div className="desktop-window__content space-y-4">
+              <button
+                onClick={handleCreateDrop}
+                disabled={loading || !selectedAvatarId || !title}
+                className="w-full rounded-2xl border border-white/15 bg-white/10 px-6 py-4 font-semibold text-lg text-white shadow-[0_20px_60px_rgba(32,4,35,0.7)] transition hover:border-white/40 disabled:opacity-40"
+              >
+                {loading ? 'Publishing drop...' : 'Publish drop'}
+              </button>
+              <p className="text-xs text-white/50 text-center">
+                Not ready? Close the drawer—your avatars stay available in the Library.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <aside className="space-y-6">
+          <div className="desktop-window">
+            <div className="desktop-titlebar">
+              <span>Drop summary</span>
+            </div>
+            <div className="desktop-window__content space-y-3 text-sm">
+              <div className="flex justify-between text-white/70">
+                <span>Avatar</span>
+                <span>{selectedAvatarId ? `#${selectedAvatarId.slice(0, 6)}` : 'Not selected'}</span>
+              </div>
+              <div className="flex justify-between text-white/70">
+                <span>Title</span>
+                <span className="text-white font-semibold">{title || 'Untitled'}</span>
+              </div>
+              <div className="flex justify-between text-white/70">
+                <span>Stock</span>
+                <span className="text-white font-semibold">{stockLimit}</span>
+              </div>
+              <div className="flex justify-between text-white/70">
+                <span>Collection</span>
+                <span className="text-white font-semibold">{collectionName || 'Single drop'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="desktop-window">
+            <div className="desktop-titlebar">
+              <span>Launch checklist</span>
+            </div>
+            <div className="desktop-window__content space-y-3 text-sm text-white/80">
+              <p>✔ Pick an avatar with a finished style.</p>
+              <p>✔ Tell a story in 1–2 sentences.</p>
+              <p>✔ Keep stock between 10–40 for scarcity.</p>
+              <p>✔ Share the gallery link post-launch.</p>
+            </div>
+          </div>
+        </aside>
       </div>
-    </div>
+    </section>
   );
 }
 

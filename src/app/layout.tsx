@@ -32,8 +32,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <Navigation />
-        {children}
+        <div className="desktop-shell">
+          <Navigation />
+          <main className="pt-6 space-y-8">{children}</main>
+        </div>
       </body>
     </html>
   );

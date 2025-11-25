@@ -1,28 +1,147 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary-50: #f0f9ff;
-  --color-primary-100: #e0f2fe;
-  --color-primary-200: #bae6fd;
-  --color-primary-300: #7dd3fc;
-  --color-primary-400: #38bdf8;
-  --color-primary-500: #0ea5e9;
-  --color-primary-600: #0284c7;
-  --color-primary-700: #0369a1;
-  --color-primary-800: #075985;
-  --color-primary-900: #0c4a6e;
+:root {
+  --desktop-ink: #f0f4f8;
+  --desktop-wallpaper: radial-gradient(circle at 25% 25%, #6b7c931f, transparent 50%),
+    radial-gradient(circle at 75% 15%, #bdc3c71f, transparent 50%),
+    radial-gradient(circle at 15% 75%, #7f8c8d1f, transparent 50%),
+    #1a1d23;
+  --window-border: rgba(255, 255, 255, 0.08);
+  --window-bg: rgba(255, 255, 255, 0.03);
+  --window-glow: 0 12px 40px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --accent-blue: #5a9cf8;
+  --accent-teal: #7dd3fc;
+  --accent-warm: #fbbf24;
+  --accent-coral: #fb7185;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --text-primary: #f0f4f8;
+  --text-secondary: rgba(240, 244, 248, 0.6);
+  --text-tertiary: rgba(240, 244, 248, 0.4);
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  min-height: 100vh;
+  font-family: 'SF Pro Display', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  color: var(--desktop-ink);
+  background: var(--desktop-wallpaper);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  overflow-x: hidden;
 }
 
-/* Custom utility classes */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body::before {
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.12), transparent 55%);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+body::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' fill-opacity='0.035'%3E%3Cpath fill='%23ffffff' d='M0 0h10v10H0z'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.8;
+  mix-blend-mode: soft-light;
+}
+
+.desktop-shell {
+  position: relative;
+  min-height: 100vh;
+  padding: 24px clamp(16px, 4vw, 72px) 48px;
+}
+
+@layer components {
+  .desktop-window {
+    @apply rounded-[28px] border transition-all duration-300 ease-out;
+    border-color: var(--window-border);
+    background: var(--window-bg);
+    box-shadow: var(--window-glow);
+    backdrop-filter: blur(24px);
+  }
+
+  .desktop-window:hover {
+    box-shadow: 0 24px 80px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .desktop-titlebar {
+    @apply flex items-center gap-3 px-6 py-4 border-b text-xs font-medium tracking-[0.45em];
+    border-color: var(--window-border);
+    color: var(--text-tertiary);
+  }
+
+  .desktop-titlebar__buttons {
+    @apply flex items-center gap-2;
+  }
+
+  .desktop-titlebar__button {
+    @apply w-3.5 h-3.5 rounded-full transition-opacity duration-200;
+  }
+
+  .desktop-pane {
+    @apply rounded-2xl border p-4 transition-all duration-200 ease-out;
+    background: var(--surface);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .desktop-pane:hover {
+    background: var(--surface-hover);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+  }
+
+  .desktop-window__content {
+    @apply p-6 sm:p-8;
+  }
+
+  .btn-primary {
+    @apply rounded-2xl border px-6 py-3 font-semibold text-sm transition-all duration-200 ease-out;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary);
+  }
+
+  .btn-primary:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+
+  .btn-accent {
+    @apply rounded-2xl px-6 py-3 font-semibold text-sm transition-all duration-200;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+    color: white;
+    box-shadow: 0 4px 20px rgba(90, 156, 248, 0.3);
+  }
+
+  .btn-accent:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(90, 156, 248, 0.4);
+  }
+
+  .status-indicator {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold;
+  }
+
+  .status-online {
+    @apply bg-emerald-500/15 text-emerald-100 border border-emerald-400/30;
+  }
+
+  .status-processing {
+    @apply bg-amber-500/15 text-amber-100 border border-amber-400/30;
+  }
+}
+
 @layer utilities {
   .line-clamp-2 {
     display: -webkit-box;
@@ -30,5 +149,105 @@ body {
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-}
 
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .glass-divider {
+    @apply border-b;
+    border-color: var(--window-border);
+  }
+
+  .dock-shadow {
+    box-shadow: 0 20px 60px rgba(6, 8, 18, 0.7);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-pulse-gentle {
+    animation: pulseGentle 2s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseGentle {
+    0%, 100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 20px rgba(90, 156, 248, 0.2);
+    }
+    to {
+      box-shadow: 0 0 40px rgba(90, 156, 248, 0.4);
+    }
+  }
+
+  /* Focus styles for accessibility */
+  .focus-visible {
+    @apply outline-none ring-2 ring-blue-400/50 ring-offset-2 ring-offset-gray-900 transition-shadow;
+  }
+
+  /* Scrollbar styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}

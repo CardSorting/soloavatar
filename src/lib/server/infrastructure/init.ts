@@ -17,13 +17,63 @@ interface InitResult {
     storage: boolean;
     queue?: boolean;
   };
-  errors?: string[];
+  errors: string[];
 }
+
+interface InitializationState {
+  promise: Promise<InitResult> | null;
+  result: InitResult | null;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __appInitializationState: InitializationState | undefined;
+}
+
+const globalInitializationState =
+  globalThis.__appInitializationState ??
+  {
+    promise: null,
+    result: null,
+  };
+
+globalThis.__appInitializationState = globalInitializationState;
 
 /**
  * Initialize all application infrastructure
  */
-export async function initializeApplication(): Promise<InitResult> {
+export async function initializeApplication(
+  options: { force?: boolean } = {},
+): Promise<InitResult> {
+  const { force = false } = options;
+
+  // Return cached result if initialization already succeeded
+  if (!force && globalInitializationState.result?.success) {
+    return globalInitializationState.result;
+  }
+
+  // Reuse in-flight initialization to avoid duplicate work
+  if (!force && globalInitializationState.promise) {
+    return globalInitializationState.promise;
+  }
+
+  const initializationPromise = performInitialization().then((result) => {
+    if (result.success) {
+      globalInitializationState.result = result;
+    } else {
+      // Allow subsequent calls to retry initialization when previous attempt failed
+      globalInitializationState.result = null;
+    }
+    return result;
+  }).finally(() => {
+    globalInitializationState.promise = null;
+  });
+
+  globalInitializationState.promise = initializationPromise;
+  return initializationPromise;
+}
+
+async function performInitialization(): Promise<InitResult> {
   const result: InitResult = {
     success: true,
     components: {
@@ -44,7 +94,7 @@ export async function initializeApplication(): Promise<InitResult> {
       result.components.storage = true;
       logger.info('Storage system initialized successfully');
     } catch (error: any) {
-      result.errors!.push(`Storage initialization failed: ${error.message}`);
+      result.errors.push(`Storage initialization failed: ${error.message}`);
       logger.error('Storage initialization failed', { error: error.message });
     }
 
@@ -75,11 +125,11 @@ export async function initializeApplication(): Promise<InitResult> {
           }
         }
       } else {
-        result.errors!.push('Database connection test failed');
+        result.errors.push('Database connection test failed');
         result.success = false;
       }
     } catch (error: any) {
-      result.errors!.push(`Database initialization failed: ${error.message}`);
+      result.errors.push(`Database initialization failed: ${error.message}`);
       result.success = false;
       logger.error('Database initialization failed', { error: error.message });
     }
@@ -92,7 +142,7 @@ export async function initializeApplication(): Promise<InitResult> {
       result.components.queue = true;
       logger.info('Queue workers initialized successfully');
     } catch (error: any) {
-      result.errors!.push(`Queue initialization failed: ${error.message}`);
+      result.errors.push(`Queue initialization failed: ${error.message}`);
       logger.error('Queue initialization failed', { error: error.message });
       // Don't fail overall initialization if queue fails - allow graceful degradation
       logger.warn('Continuing without queue workers - jobs will need to be processed manually');
@@ -116,12 +166,11 @@ export async function initializeApplication(): Promise<InitResult> {
       database: result.components.database,
       storage: result.components.storage,
       queue: result.components.queue,
-      errorCount: result.errors!.length,
+      errorCount: result.errors.length,
     });
-
   } catch (error: any) {
     result.success = false;
-    result.errors!.push(`Unexpected initialization error: ${error.message}`);
+    result.errors.push(`Unexpected initialization error: ${error.message}`);
     logger.error('Unexpected application initialization error', { error: error.message });
   }
 
