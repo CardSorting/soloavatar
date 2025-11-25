@@ -1,0 +1,219 @@
+// Simplified Prisma Schema for Avatar & Drop System
+// No auth, payment, or marketplace - just avatar generation and drops
+
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native"]
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AVATAR DOMAIN
+// ============================================
+
+/// Avatar Forge generation requests
+/// Tracks all avatar generation requests with input/output images
+model AvatarForgeRequest {
+  /// Unique request identifier
+  id String @id @default(uuid()) @db.Uuid
+
+  /// User identifier (simplified - can be any string identifier)
+  userId String @map("user_id") @db.VarChar(255)
+
+  /// Style prompt used for generation
+  stylePrompt String @map("style_prompt") @db.Text
+
+  /// Input image URL (stored in cloud storage)
+  inputImageUrl String @map("input_image_url") @db.Text
+
+  /// Input image file ID in storage (for deletion/management)
+  inputImageFileId String? @map("input_image_file_id") @db.VarChar(255)
+
+  /// Output/generated avatar image URL
+  outputImageUrl String? @map("output_image_url") @db.Text
+
+  /// Output image file ID in storage
+  outputImageFileId String? @map("output_image_file_id") @db.VarChar(255)
+
+  /// Request status: 'pending', 'processing', 'completed', 'failed'
+  status String @default("pending") @db.VarChar(20)
+
+  /// Error message if generation failed
+  errorMessage String? @map("error_message") @db.Text
+
+  /// Processing time in milliseconds
+  processingTimeMs Int? @map("processing_time_ms") @db.Integer
+
+  /// Request creation timestamp
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// Last modification timestamp
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  /// Soft delete timestamp (NULL = not deleted)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  dropListings DropListing[]
+
+  // Indexes
+  @@index([userId, createdAt(sort: Desc)], map: "idx_avatar_forge_user")
+  @@index([status], map: "idx_avatar_forge_status")
+  @@index([createdAt(sort: Desc)], map: "idx_avatar_forge_created")
+  @@index([userId, status, createdAt(sort: Desc)], map: "idx_avatar_forge_user_status")
+  @@map("avatar_forge_requests")
+}
+
+// ============================================
+// DROPS DOMAIN
+// ============================================
+
+/// Personal drop collections - instant, no scheduling
+/// Drops are created instantly and available immediately
+model DropListing {
+  /// Unique listing identifier
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Reference to the base avatar (from AvatarForgeRequest)
+  baseAvatarId String @map("base_avatar_id") @db.Uuid
+
+  /// Creator's user ID
+  creatorId String @map("creator_id") @db.VarChar(255)
+
+  /// Listing title
+  title String @db.VarChar(255)
+
+  /// Detailed listing description
+  description String? @db.Text
+
+  /// Stock limit for limited edition drops
+  stockLimit Int @map("stock_limit") @db.Integer
+
+  /// Current available stock
+  stockAvailable Int @map("stock_available") @db.Integer
+
+  /// Collection name for grouping
+  collectionName String? @map("collection_name") @db.VarChar(255)
+
+  /// Trait generation configuration (styleId, rarityDistribution, etc.)
+  traitConfig Json? @map("trait_config") @db.JsonB
+
+  /// Trait generation status: 'pending' | 'generating' | 'completed' | 'failed'
+  generationStatus String? @default("pending") @map("generation_status") @db.VarChar(20)
+
+  /// Generation progress (0-100)
+  generationProgress Int? @default(0) @map("generation_progress") @db.Integer
+
+  /// Listing creation timestamp (drops are instant, created = active)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// Last modification timestamp
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  /// Soft delete timestamp (NULL = not deleted)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  baseAvatar AvatarForgeRequest @relation(fields: [baseAvatarId], references: [id], onDelete: Cascade)
+  ownerships DropOwnership[]
+  generatedAvatars DropGeneratedAvatar[]
+
+  // Indexes
+  @@index([creatorId, createdAt(sort: Desc)], map: "idx_drop_listing_creator")
+  @@index([creatorId, deletedAt], map: "idx_drop_listing_creator_active")
+  @@index([collectionName], map: "idx_drop_listing_collection")
+  @@map("drop_listings")
+}
+
+/// NFT-style drop ownership tracking
+/// Each purchase creates a unique ownership token (similar to NFT token IDs)
+model DropOwnership {
+  /// Unique ownership token ID (like NFT token ID)
+  id String @id @default(uuid()) @db.Uuid
+
+  /// The drop listing that was purchased
+  listingId String @map("listing_id") @db.Uuid
+
+  /// Owner's user ID (current owner)
+  ownerId String @map("owner_id") @db.VarChar(255)
+
+  /// Token number within the drop collection (1, 2, 3...)
+  tokenNumber Int @map("token_number") @db.Integer
+
+  /// When this token was acquired (minted)
+  acquiredAt DateTime @default(now()) @map("acquired_at") @db.Timestamptz(6)
+
+  /// Ownership creation timestamp
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// Last modification timestamp
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  listing DropListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  generatedAvatar DropGeneratedAvatar?
+
+  // Constraints
+  /// Token numbers must be unique within a listing
+  @@unique([listingId, tokenNumber], map: "ux_drop_ownership_token")
+
+  // Indexes
+  @@index([ownerId, acquiredAt(sort: Desc)], map: "idx_drop_ownership_owner")
+  @@index([listingId, tokenNumber(sort: Asc)], map: "idx_drop_ownership_listing")
+  @@index([ownerId, listingId], map: "idx_drop_ownership_owner_listing")
+  @@map("drop_ownership")
+}
+
+/// Pre-generated avatars for drop collections
+/// Stores unique trait combinations and generated avatar images
+model DropGeneratedAvatar {
+  /// Unique generated avatar identifier
+  id String @id @default(uuid()) @db.Uuid
+
+  /// The drop listing this avatar belongs to
+  listingId String @map("listing_id") @db.Uuid
+
+  /// Token number within the drop collection (1, 2, 3...)
+  tokenNumber Int @map("token_number") @db.Integer
+
+  /// Trait combination (JSON array of {trait_type, value} objects)
+  traits Json @db.JsonB
+
+  /// Rarity tier: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+  rarity String @db.VarChar(20)
+
+  /// Calculated rarity score (higher = rarer)
+  rarityScore Decimal? @map("rarity_score") @db.Decimal(10, 4)
+
+  /// URL of the generated avatar image
+  avatarImageUrl String @map("avatar_image_url") @db.Text
+
+  /// When this avatar was generated
+  generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+
+  /// Reference to drop_ownership when token is purchased
+  /// NULL means this avatar is still available for purchase
+  assignedToTokenId String? @unique @map("assigned_to_token_id") @db.Uuid
+
+  // Relations
+  listing DropListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  assignedToken DropOwnership? @relation(fields: [assignedToTokenId], references: [id], onDelete: SetNull)
+
+  // Constraints
+  /// Token numbers must be unique within a listing
+  @@unique([listingId, tokenNumber], map: "ux_drop_generated_avatar_token")
+
+  // Indexes
+  @@index([listingId], map: "idx_drop_generated_avatar_listing")
+  @@index([assignedToTokenId], map: "idx_drop_generated_avatar_token")
+  @@index([listingId, assignedToTokenId], map: "idx_drop_generated_avatar_unassigned")
+  @@index([listingId, rarity], map: "idx_drop_generated_avatar_rarity")
+  @@index([listingId, tokenNumber(sort: Asc)], map: "idx_drop_generated_avatar_token_number")
+  @@map("drop_generated_avatars")
+}
+
